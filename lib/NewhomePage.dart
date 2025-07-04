@@ -24,7 +24,7 @@ class _NewhomePageState extends State<NewhomePage> {
           Homepage(), // Attach Homepage to Money
           // taskk(), // Attach taskk to Tasks
       
-  //        SwarajPage(), // Attach SwarajPage to Settings
+
         ],
       ),
       bottomNavigationBar: Container(
