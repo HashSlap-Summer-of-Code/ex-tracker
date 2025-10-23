@@ -9,6 +9,8 @@ void main() async {
 
 //initialize  money db
   await expenses_database.initialize();
+  // Purge known test data once at startup (safe no-op if none exist)
+  await expenses_database.purgeTestData();
 
   runApp(MultiProvider(
     providers: [
