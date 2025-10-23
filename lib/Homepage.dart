@@ -16,6 +16,8 @@ class _HomepageState extends State<Homepage> {
 //text controller
   TextEditingController nameController = TextEditingController();
   TextEditingController amountController = TextEditingController();
+  // New: description controller
+  TextEditingController descriptionController = TextEditingController();
 
   @override
   void initState() {
@@ -28,30 +30,41 @@ class _HomepageState extends State<Homepage> {
   void openNewExpensesBox() {
     showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-              title: const Text(" Expenses"),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  //user input -> expenses name
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(hintText: "Name"),
-                  ),
+        builder: (context) => StatefulBuilder(
+              builder: (context, setState) => AlertDialog(
+                title: const Text(" Expenses"),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    //user input -> expenses name
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(hintText: "Name"),
+                      onChanged: (value) => setState(() {}),
+                    ),
 
 //user input -> expenses amount
-                  TextField(
-                    controller: amountController,
-                    decoration: const InputDecoration(hintText: "Amount "),
-                  )
+                    TextField(
+                      controller: amountController,
+                      decoration: const InputDecoration(hintText: "Amount "),
+                      keyboardType: TextInputType.number,
+                      onChanged: (value) => setState(() {}),
+                    ),
+                    //user input -> description (required)
+                    TextField(
+                      controller: descriptionController,
+                      decoration: const InputDecoration(hintText: "Description"),
+                      onChanged: (value) => setState(() {}),
+                    )
+                  ],
+                ),
+                actions: [
+                  //cancel button
+                  _cancelButton(),
+                  //save button
+                  _createNewExpensesButton(),
                 ],
               ),
-              actions: [
-                //cancel button
-                _cancelButton(),
-                //save button
-                _createNewExpensesButton(),
-              ],
             ));
   }
 
@@ -63,30 +76,40 @@ class _HomepageState extends State<Homepage> {
 
     showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-              title: const Text("Edit Expenses"),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  //user input -> expenses name
-                  TextField(
-                    controller: nameController,
-                    decoration: InputDecoration(hintText: existingName),
-                  ),
+        builder: (context) => StatefulBuilder(
+              builder: (context, setState) => AlertDialog(
+                title: const Text("Edit Expenses"),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    //user input -> expenses name
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(hintText: "Description"),
+                      onChanged: (value) => setState(() {}),
+                    ),
 
 //user input -> expenses amount
-                  TextField(
-                    controller: amountController,
-                    decoration: InputDecoration(hintText: existingAmount),
-                  )
+                    TextField(
+                      controller: amountController,
+                      decoration: InputDecoration(hintText: existingAmount),
+                      onChanged: (value) => setState(() {}),
+                    ),
+                    //user input -> description (required for new, optional for edit)
+                    TextField(
+                      controller: descriptionController,
+                      decoration: const InputDecoration(hintText: "Description"),
+                      onChanged: (value) => setState(() {}),
+                    )
+                  ],
+                ),
+                actions: [
+                  //cancel button
+                  _cancelButton(),
+                  //save button
+                  _editExpensesButton(expenses),
                 ],
               ),
-              actions: [
-                //cancel button
-                _cancelButton(),
-                //save button
-                _editExpensesButton(expenses),
-              ],
             ));
   }
 
@@ -149,63 +172,71 @@ class _HomepageState extends State<Homepage> {
 
 //Save button -> create a new expenses
   Widget _createNewExpensesButton() {
+    bool isValid = nameController.text.isNotEmpty &&
+        amountController.text.isNotEmpty &&
+        double.tryParse(amountController.text) != null &&
+        descriptionController.text.isNotEmpty;
     return MaterialButton(
-      onPressed: () async {
-        //only save if there is something in the textfield to save
-        if (nameController.text.isNotEmpty &&
-            amountController.text.isNotEmpty) {
-          //POP BOX
-          Navigator.pop(context);
+      onPressed: isValid
+          ? () async {
+              //POP BOX
+              Navigator.pop(context);
 
-          //create new expenses
-          Expenses newExpenses = Expenses(
-              name: nameController.text,
-              amount: convertStringToDouble(amountController.text),
-              date: DateTime.now());
+              //create new expenses
+              Expenses newExpenses = Expenses(
+                  name: nameController.text,
+                  amount: convertStringToDouble(amountController.text),
+                  date: DateTime.now(),
+                  description: descriptionController.text);
 
-          // save to db
-          await context
-              .read<expenses_database>()
-              .createNewExpenses(newExpenses);
+              // save to db
+              await context
+                  .read<expenses_database>()
+                  .createNewExpenses(newExpenses);
 
-          //clear controller
-          nameController.clear();
-          amountController.clear();
-        }
-      },
+              //clear controller
+              nameController.clear();
+              amountController.clear();
+              descriptionController.clear();
+            }
+          : null,
       child: const Text("Save"),
     );
   }
 
 //Save button -> Edit existing expenses
   Widget _editExpensesButton(Expenses expenses) {
+    bool nameValid = nameController.text.isNotEmpty;
+    bool amountValid = amountController.text.isEmpty || double.tryParse(amountController.text) != null;
+    bool isValid = nameValid && amountValid;
     return MaterialButton(
-      onPressed: () async {
-        // save as long as at least one textfield has been changes
-        if (nameController.text.isNotEmpty ||
-            amountController.text.isNotEmpty) {
-          //pop box
-          Navigator.pop(context);
+      onPressed: isValid
+          ? () async {
+              //pop box
+              Navigator.pop(context);
 
-          //create a new updates box
-          Expenses updatedExpenses = Expenses(
-              name: nameController.text.isNotEmpty
-                  ? nameController.text
-                  : expenses.name,
-              amount: amountController.text.isNotEmpty
-                  ? convertStringToDouble(amountController.text)
-                  : expenses.amount,
-              date: DateTime.now());
+              //create a new updates box
+              Expenses updatedExpenses = Expenses(
+                  name: nameController.text.isNotEmpty
+                      ? nameController.text
+                      : expenses.name,
+                  amount: amountController.text.isNotEmpty
+                      ? convertStringToDouble(amountController.text)
+                      : expenses.amount,
+                  date: DateTime.now(),
+                  description: descriptionController.text.isNotEmpty
+                      ? descriptionController.text
+                      : expenses.description);
 
 // old expenses id
-          int existingId = expenses.id;
+              int existingId = expenses.id;
 
-          // save to db
-          await context
-              .read<expenses_database>()
-              .updateExpenses(existingId, updatedExpenses);
-        }
-      },
+              // save to db
+              await context
+                  .read<expenses_database>()
+                  .updateExpenses(existingId, updatedExpenses);
+            }
+          : null,
       child: const Text('Save'),
     );
   }
