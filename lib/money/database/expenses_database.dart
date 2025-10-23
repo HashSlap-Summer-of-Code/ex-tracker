@@ -2,18 +2,52 @@ import 'package:flutter/material.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:trackerop/money/models/expenses.dart';
+import 'package:flutter/foundation.dart' show kDebugMode; // for build-mode detection
 
 class expenses_database extends ChangeNotifier{
   static late Isar isar;
   List<Expenses> _allExpenses = [];
 
+  // Whether the app is running against the test database
+  static bool isTestMode = false;
+  static String currentDbName = 'ex_tracker_prod';
+
 /*
 SETUP
 */
 // initialize db
-static  Future<void> initialize() async{
+static  Future<void> initialize({bool? useTestDb}) async{
   final dir = await getApplicationDocumentsDirectory();
-  isar = await Isar.open([ExpensesSchema], directory: dir.path);
+
+  // Determine test mode:
+  // Priority: explicit parameter > --dart-define override > default by build mode
+  // Robust parse: accept true/false/1/0/yes/no (case-insensitive)
+  const String raw = String.fromEnvironment('USE_TEST_DB');
+  final String envStr = raw.trim().toLowerCase();
+  bool? envOverride;
+  if (envStr == 'true' || envStr == '1' || envStr == 'yes') envOverride = true;
+  if (envStr == 'false' || envStr == '0' || envStr == 'no') envOverride = false;
+
+  final bool testMode = useTestDb ?? envOverride ?? kDebugMode;
+
+  // Use distinct Isar names to keep data fully separated
+  final String dbName = testMode ? 'ex_tracker_test' : 'ex_tracker_prod';
+
+  isar = await Isar.open(
+    [ExpensesSchema],
+    directory: dir.path,
+    name: dbName,
+  );
+
+  isTestMode = testMode;
+  currentDbName = dbName;
+
+  // Log selection so it can be verified even in release builds
+  // These prints show up in device logs (e.g., logcat) and desktop terminal
+  // Example: expenses_database: mode=TEST name=ex_tracker_test dir=/.../Documents
+  // ignore: avoid_print
+  print('expenses_database: mode=' + (isTestMode ? 'TEST' : 'PROD') +
+      ' name=' + dbName + ' dir=' + dir.path);
 }
 /*
 GETTERS
