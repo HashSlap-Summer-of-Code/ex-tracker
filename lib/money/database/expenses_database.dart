@@ -15,6 +15,25 @@ static  Future<void> initialize() async{
   final dir = await getApplicationDocumentsDirectory();
   isar = await Isar.open([ExpensesSchema], directory: dir.path);
 }
+
+// Purge known test/placeholder data
+static Future<int> purgeTestData({List<String> blacklist = const ["asd", "ok", "new"]}) async {
+  int deleted = 0;
+  // delete any expenses whose name matches any blacklisted value (case-insensitive)
+  for (final raw in blacklist) {
+    final name = raw.toLowerCase();
+    final ids = await isar.expenses
+        .filter()
+        .nameEqualTo(name, caseSensitive: false)
+        .idProperty()
+        .findAll();
+    if (ids.isEmpty) continue;
+    await isar.writeTxn(() async {
+      deleted += await isar.expenses.deleteAll(ids);
+    });
+  }
+  return deleted;
+}
 /*
 GETTERS
 */

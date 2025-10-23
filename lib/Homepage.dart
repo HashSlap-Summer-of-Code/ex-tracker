@@ -17,6 +17,25 @@ class _HomepageState extends State<Homepage> {
   TextEditingController nameController = TextEditingController();
   TextEditingController amountController = TextEditingController();
 
+  final List<String> _blacklist = const ["asd", "ok", "new"];
+
+  bool _isNameAllowed(String raw) {
+    final name = raw.trim();
+    if (name.length < 2) return false;
+    return !_blacklist.any((b) => b.toLowerCase() == name.toLowerCase());
+  }
+
+  bool _isAmountAllowed(String raw) {
+    final v = convertStringToDouble(raw);
+    return v > 0;
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   @override
   void initState() {
     Provider.of<expenses_database>(context, listen: false).readExpenses();
@@ -151,16 +170,25 @@ class _HomepageState extends State<Homepage> {
   Widget _createNewExpensesButton() {
     return MaterialButton(
       onPressed: () async {
+        final name = nameController.text;
+        final amountText = amountController.text;
+        if (!_isNameAllowed(name)) {
+          _showError('Please enter a valid name (no placeholders).');
+          return;
+        }
+        if (!_isAmountAllowed(amountText)) {
+          _showError('Please enter a positive amount.');
+          return;
+        }
         //only save if there is something in the textfield to save
-        if (nameController.text.isNotEmpty &&
-            amountController.text.isNotEmpty) {
+        if (name.isNotEmpty && amountText.isNotEmpty) {
           //POP BOX
           Navigator.pop(context);
 
           //create new expenses
           Expenses newExpenses = Expenses(
-              name: nameController.text,
-              amount: convertStringToDouble(amountController.text),
+              name: name.trim(),
+              amount: convertStringToDouble(amountText),
               date: DateTime.now());
 
           // save to db
@@ -181,6 +209,19 @@ class _HomepageState extends State<Homepage> {
   Widget _editExpensesButton(Expenses expenses) {
     return MaterialButton(
       onPressed: () async {
+        final newName = nameController.text.trim();
+        final newAmountText = amountController.text.trim();
+
+        // if user provided new values, validate them
+        if (newName.isNotEmpty && !_isNameAllowed(newName)) {
+          _showError('Please enter a valid name (no placeholders).');
+          return;
+        }
+        if (newAmountText.isNotEmpty && !_isAmountAllowed(newAmountText)) {
+          _showError('Please enter a positive amount.');
+          return;
+        }
+
         // save as long as at least one textfield has been changes
         if (nameController.text.isNotEmpty ||
             amountController.text.isNotEmpty) {
@@ -189,11 +230,9 @@ class _HomepageState extends State<Homepage> {
 
           //create a new updates box
           Expenses updatedExpenses = Expenses(
-              name: nameController.text.isNotEmpty
-                  ? nameController.text
-                  : expenses.name,
-              amount: amountController.text.isNotEmpty
-                  ? convertStringToDouble(amountController.text)
+              name: newName.isNotEmpty ? newName : expenses.name,
+              amount: newAmountText.isNotEmpty
+                  ? convertStringToDouble(newAmountText)
                   : expenses.amount,
               date: DateTime.now());
 
